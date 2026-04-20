@@ -28,13 +28,3 @@ Scripts auxiliares para manutenção da base de dados local.
 - **Ajuda:** `python3 addmodel.py --help`
 
 ---
-
-## 🛰️ Rotina de Atualização (Git)
-Sempre que alterar a configuração ou o código, sincronize com o GitHub Privado:
-
-1. **Adicionar mudanças:** `git add .`
-2. **Commit:** `git commit -m "Explique o que mudou"`
-3. **Subir:** `git push origin main`
-
----
-*Mantido por João Ferreira - Planalto Net*
