@@ -1,0 +1,10 @@
+{
+  "name": "gestao-redes-bot",
+  "version": "1.0.0",
+  "type": "module",
+  "dependencies": {
+    "axios": "^1.x.x",
+    "express": "^4.x.x",
+    "telnet-client": "^2.x.x"
+  }
+}
