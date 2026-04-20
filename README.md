@@ -1,32 +1,40 @@
-<<<<<<< HEAD
-# swmanager
-Gestao de Switch Huawei
-=======
-# 🌐 Gestor de Switches Huawei - WhatsApp Bot
+# 🌐 Gestor de Switches Huawei - WhatsApp Bot (v1.0.4)
 
-Sistema de automação para monitoramento e gestão de switches Huawei via WhatsApp, focado em consultas de sinal óptico (RX) e status de interfaces.
+Sistema de automação para monitoramento e gestão de infraestrutura de rede Planalto Net via WhatsApp.
 
-## 🚀 Funcionalidades
-- 📊 **Consulta de Sinal RX**: Suporte a interfaces 1G, 10G, 40G e 100G (Multi-lane).
-- ⚡ **Status da Porta**: Verificação rápida de PHY e Protocol (Up/Down).
-- 🚫 **Gestão de Interface**: Comandos de Shutdown e Unshutdown remotos.
-- 🕒 **Fila de Processamento**: Evita sobrecarga de sessões Telnet no switch.
-
-## 🛠️ Comandos Disponíveis
-Envie no WhatsApp no formato: `ID_SWITCH COMANDO`
+## 🛠️ Comandos do WhatsApp
+Envie no formato: `ID_SWITCH COMANDO`
 
 | Comando | Descrição | Exemplo |
 | :--- | :--- | :--- |
-| **ID + Porta** | Consulta Diagnóstico de Sinal | `1 c1` |
+| **ID + Porta** | Consulta Diagnóstico de Sinal (RX) | `1 c1` |
 | **ID + Porta?** | Consulta Status (Up/Down) | `1 c1?` |
 | **ID + Portas** | Desligar Porta (Shutdown) | `1 c1s` |
 | **ID + Portau** | Religar Porta (Unshutdown) | `1 c1u` |
 
-## ⚙️ Tecnologias
-- Node.js
-- Axios (Integração WPPConnect)
-- Telnet (Protocolo de comunicação de rede)
+> **Legenda de Portas:** g=1G, x=10G, e=25G, q=40G, c=100G.
+
+## 🖥️ Gestão via Terminal (Scripts Python)
+Scripts auxiliares para manutenção da base de dados local.
+
+### 1. Gestão de Switches (`addsw.py`)
+- **Adicionar:** `python3 addsw.py $NOME $IP $USER $PASS [$MODELO] [$PROTOCOLO]`
+- **Listar Cadastrados:** `python3 addsw.py -l`
+- **Ajuda:** `python3 addsw.py --help`
+
+### 2. Gestão de Modelos (`addmodel.py`)
+- **Adicionar:** `python3 addmodel.py $MODELO $PORTAS`
+- **Listar Cadastrados:** `python3 addmodel.py -l`
+- **Ajuda:** `python3 addmodel.py --help`
 
 ---
-*Desenvolvido por João Ferreira*
->>>>>>> 1bacb26 (v1.0.3 - Versão Estável com suporte a 100G e Telnet revisado)
+
+## 🛰️ Rotina de Atualização (Git)
+Sempre que alterar a configuração ou o código, sincronize com o GitHub Privado:
+
+1. **Adicionar mudanças:** `git add .`
+2. **Commit:** `git commit -m "Explique o que mudou"`
+3. **Subir:** `git push origin main`
+
+---
+*Mantido por João Ferreira - Planalto Net*
