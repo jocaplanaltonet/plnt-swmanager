@@ -2,6 +2,7 @@ import 'dotenv/config';
 import express from 'express';
 import axios from 'axios';
 import { consultarPorta } from './telnet.js';
+import listaSwitches from './switches.js';
 
 const app = express();
 app.use(express.json({ limit: '50mb' }));
@@ -19,12 +20,13 @@ const processarFila = async () => {
     const { body, sender } = fila.shift();
 
     try {
-        console.log(`[FILA] Processando: ${body}`);
+        console.log(`[FILA] Processando para ${sender}`);
         const resultado = await consultarPorta(body);
-        await enviarWpp(sender, resultado);
+        if (resultado) {
+            await enviarWpp(sender, resultado);
+        }
     } catch (error) {
-        console.error(`[ERRO]`, error.message);
-        await enviarWpp(sender, `⚠️ Erro técnico ao processar comando.`);
+        console.error(`[ERRO FILA]`, error.message);
     } finally {
         processando = false;
         setTimeout(processarFila, 1000);
@@ -38,55 +40,52 @@ app.post('/webhook', async (req, res) => {
     const msgTexto = body.trim().toLowerCase();
     const sender = from || chatId;
 
-    // SEU MENU OFICIAL
+    // MENU COMPACTO PARA NÃO APARECER O "LER MAIS"
     if (msgTexto === 'menu' || msgTexto === 'ajuda' || msgTexto === 'oi') {
+        let listaTexto = "";
+        listaSwitches.forEach((sw, index) => {
+            listaTexto += `*${index + 1}* - ${sw.nome} _(${sw.modelo})_\n`;
+        });
+
         const meuMenu = `🖥️ *SISTEMA DE GESTÃO DE REDE*
-
-*EQUIPAMENTOS:* *1* - SW-CORE _(S6730-H24X6C-100G)_
-*2* - BKB_CARPINA _(S6730-H24X6C-100G)_
-*3* - BKB_LCARRO _(S6730-H24X6C-100G)_
-*4* - BKB_TRAC _(S6730-H24X6C-100G)_
-*5* - BKB_NZM _(S6730-H24X6C-100G)_
-*6* - BKB_LIMOEIRO _(S6730-H24X6C-100G)_
-*7* - BKB_TIMBAUBA _(S5720-36C-EI-28S-DC)_
-*8* - BKB_PDLH _(S6730-H24X6C-100G)_
-*9* - BKB_VARZEA _(S6730-H24X6C-100G)_
-*10* - BKB_ALIANCA _(S5720-36C-EI-28S-DC)_
-*11* - SW-CAJA03 _(S5732-H24S6Q)_
-*12* - SW-FH02 _(S5732-H24S6Q)_
-*13* - SW-3MARIAS _(S5732-H24S6Q)_
-
-────────────────
-🔍 *CONSULTA DE SINAL RX:*
-• \`ID\` + \`Porta\` (Ex: \`1 c1\`)
-
+*EQUIPAMENTOS:*
+${listaTexto.trim()}
 ⚡ *COMANDOS DE INTERFACE:*
-• *Status* (Up/Down) → \`ID\` + \`Porta?\` (Ex: \`1 c1?\`)
-• *Shut* (Desligar)  → \`ID\` + \`Portas\` (Ex: \`1 c1s\`)
-• *Up* (Religar)     → \`ID\` + \`Portau\` (Ex: \`1 c1u\`)
-
-────────────────
-📌 *LEGENDA:* c=100G, q=40G, x=10G, g=1G`;
+• *Sinal:* \`ID\` + \`Porta\` (Ex: \`1 x1\`)
+• *Status:* \`ID\` + \`Porta?\` (Ex: \`1 c1?\`)
+• *Shut:* \`ID\` + \`Portas\` (Ex: \`1 c1s\`)
+• *Up:* \`ID\` + \`Portau\` (Ex: \`1 c1u\`)
+📌 *LEG:* c=100G, q=40G, e=25G, x=10G, g=1G`;
 
         await enviarWpp(sender, meuMenu);
         return res.status(200).send('OK');
     }
 
-    // REGEX DE COMANDOS TÉCNICOS
     if (/^\d+\s+[a-zA-Z\d?]+$/.test(msgTexto)) {
         fila.push({ body, sender });
         processarFila();
     }
-    
     res.status(200).send('OK');
 });
 
+// FUNÇÃO WPP BLINDADA (FUNCIONA EM GRUPO E PV)
 async function enviarWpp(to, text) {
     try {
-        await axios.post(`${WPP_BASE_URL}/send-message`, { phone: to, message: text }, 
-        { headers: { 'Authorization': `Bearer ${WPP_TOKEN}` } });
+        const apenasNumeros = to.split('@')[0].split(':')[0];
+        const eGrupo = to.includes('@g.us');
+
+        await axios.post(`${WPP_BASE_URL}/send-message`, { 
+            phone: apenasNumeros, 
+            message: text,
+            isGroup: eGrupo
+        }, { 
+            headers: { 'Authorization': `Bearer ${WPP_TOKEN}` } 
+        });
+        
+        console.log(`[WPP] ✅ Enviado para ${to}`);
     } catch (err) {
-        console.error("Erro WPP:", err.message);
+        const erroMsg = err.response?.data?.message || err.response?.data || err.message;
+        console.error(`[ERRO WPP] Destino: ${to} | Motivo:`, JSON.stringify(erroMsg));
     }
 }
 

@@ -134,19 +134,36 @@ function gerarRelatorio(nomeSw, porta, log) {
     linhas.forEach(l => {
         const texto = l.toLowerCase();
 
+        // Delimitadores da seção RX para links com múltiplas lanes (ex: 40G/100G)
         if (texto.includes('txpower')) naSecaoRX = false;
         if (texto.includes('rxpower')) naSecaoRX = true;
 
         if (naSecaoRX || texto.includes('rxpower')) {
-            const matches = l.match(/(-?\d+\.\d+)/g);
+            // Regex ajustado para pegar números negativos e positivos com casas decimais
+            const matches = l.match(/([-+]?\d+\.\d+)/g); 
             if (matches) {
                 const valor = parseFloat(matches[0]);
-                if (valor > -35 && valor < 5) {
+                if (valor > -40 && valor < 5) {
                     lanes.push(valor);
                 }
-                if (matches.length >= 2 && texto.includes('rxpower')) {
-                    const thresholdDetectado = parseFloat(matches[1]);
-                    if (thresholdDetectado < -5) limite = thresholdDetectado;
+                
+                // LÓGICA DE DETECÇÃO R022 vs R024
+                if (texto.includes('rxpower')) {
+                    let thresholdDetectado;
+                    
+                    // Se tiver mais de 3 números, é a tabela da R024. O LowAlarm fica na pos 3
+                    if (matches.length > 3) {
+                        thresholdDetectado = parseFloat(matches[3]);
+                    } 
+                    // Se tiver 2 ou 3 números, é a tabela da R022. O LowAlarm fica na pos 1
+                    else if (matches.length >= 2) {
+                        thresholdDetectado = parseFloat(matches[1]);
+                    }
+
+                    // Se encontrou e for menor que -5, atualiza o limite
+                    if (thresholdDetectado !== undefined && thresholdDetectado < -5) {
+                        limite = thresholdDetectado;
+                    }
                 }
             }
         }
