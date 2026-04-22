@@ -3,3 +3,4 @@ node_modules/
 *.stable
 atividades.log
 logs/
+.DS_Store
