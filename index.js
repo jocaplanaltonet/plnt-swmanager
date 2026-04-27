@@ -30,7 +30,7 @@ const processarFila = async () => {
         if (Array.isArray(resultado)) {
             for (const msg of resultado) {
                 await enviarWpp(sender, msg);
-                // Delay entre mensagens para manter a ordem no WhatsApp
+                // Delay de 600ms entre as mensagens para garantir a ordem no WhatsApp
                 await new Promise(r => setTimeout(r, 600));
             }
         } else if (resultado) {
@@ -100,12 +100,10 @@ async function enviarWpp(to, text) {
                 'Content-Type': 'application/json'
             } 
         });
-        
         console.log(`[WPP] ✅ Enviado para ${to}`);
     } catch (err) {
-        const erroMsg = err.response?.data?.message || err.response?.data || err.message;
-        console.error(`[ERRO WPP] Destino: ${to} | Motivo:`, JSON.stringify(erroMsg));
+        console.error(`[ERRO WPP] Destino: ${to}`);
     }
 }
 
-app.listen(PORT, '0.0.0.0', () => console.log(`🚀 Bot Planalto Net online na porta ${PORT}`));
+app.listen(PORT, '0.0.0.0', () => console.log(`🚀 Bot online na porta ${PORT}`));

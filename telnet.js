@@ -91,61 +91,52 @@ export async function consultarPorta(msg) {
 
 function formatarListaGeral(nomeSw, log) {
     const linhas = log.split(/\r?\n/);
-    
     let grupos = {
         'TRUNKS': [],
-        'VLANIFS': [],
-        'FISICAS': []
+        'UPLINKS_100G': [],
+        'ACESSO_XG_GE': [],
+        'VLANIFS': []
     };
 
     linhas.forEach(linha => {
         const l = linha.trim();
-        if (/^[a-zA-Z]/.test(l) && (l.includes(' up ') || l.includes(' down ') || l.includes(' *down '))) {
+        // Regex robusta para capturar todos os tipos incluindo 100GE
+        if (/^(Eth-Trunk|XGE|100GE|25GE|GE|Gigabit|Vlanif|40GE)\d+/i.test(l)) {
             const partes = l.split(/\s+/);
             const interfaceNome = partes[0];
-            const phy = partes[1].toLowerCase();
-            const protocol = partes[2].toLowerCase();
-            let desc = partes.slice(3).join(' ').trim() || '---';
+            
+            // Localiza dinamicamente a coluna do status (phy)
+            const phyIndex = partes.findIndex(p => /^(up|down|\*down)$/i.test(p));
+            if (phyIndex === -1) return;
 
-            // Definindo o Status Visual
+            const phy = partes[phyIndex].toLowerCase();
+            const protocol = partes[phyIndex + 1] ? partes[phyIndex + 1].toLowerCase() : '---';
+            let desc = partes.slice(phyIndex + 2).join(' ').trim() || '---';
+
             let emoji = (phy === 'up' && protocol === 'up') ? '✅' : (phy === 'up' ? '⚠️' : '❌');
             if (phy.includes('*down')) emoji = '🚫';
 
-            const item = `${emoji} \`${interfaceNome.padEnd(15)}\` | \`${phy}/${protocol}\` | ${desc}`;
+            // Alinhamento formatado
+            const item = `${emoji} \`${interfaceNome.padEnd(15)}\` | \`${phy.padEnd(4)}/${protocol.padEnd(4)}\` | ${desc}`;
 
-            // Classificação
-            if (interfaceNome.toLowerCase().startsWith('eth-trunk')) grupos['TRUNKS'].push(item);
-            else if (interfaceNome.toLowerCase().startsWith('vlanif')) grupos['VLANIFS'].push(item);
-            else if (/^(XGE|100GE|25GE|GE|Gigabit|40GE)/i.test(interfaceNome)) grupos['FISICAS'].push(item);
+            const nomeLower = interfaceNome.toLowerCase();
+            if (nomeLower.startsWith('eth-trunk')) grupos['TRUNKS'].push(item);
+            else if (nomeLower.startsWith('vlanif')) grupos['VLANIFS'].push(item);
+            else if (nomeLower.startsWith('100ge')) grupos['UPLINKS_100G'].push(item);
+            else grupos['ACESSO_XG_GE'].push(item);
         }
     });
 
-    let mensagensSaida = [];
-    
-    // Montando Mensagem de Trunks
-    if (grupos['TRUNKS'].length > 0) {
-        let msg = `📂 *TRUNKS - ${nomeSw}*\n\`Interface       | PHY/PROT | Descrição\`\n` + grupos['TRUNKS'].join('\n');
-        mensagensSaida.push(msg);
-    }
+    let msgs = [];
+    if (grupos['TRUNKS'].length > 0) msgs.push(`📂 *TRUNKS - ${nomeSw}*\n` + grupos['TRUNKS'].join('\n'));
+    if (grupos['UPLINKS_100G'].length > 0) msgs.push(`🚀 *INTERFACES 100G - ${nomeSw}*\n` + grupos['UPLINKS_100G'].join('\n'));
+    if (grupos['ACESSO_XG_GE'].length > 0) msgs.push(`🔌 *INTERFACES 10G/25G/GE - ${nomeSw}*\n` + grupos['ACESSO_XG_GE'].join('\n'));
+    if (grupos['VLANIFS'].length > 0) msgs.push(`🌐 *VLANIFS - ${nomeSw}*\n` + grupos['VLANIFS'].join('\n'));
 
-    // Montando Mensagem de Vlanifs (com quebra se for muito longa)
-    if (grupos['VLANIFS'].length > 0) {
-        let msg = `🌐 *VLANIFS - ${nomeSw}*\n` + grupos['VLANIFS'].join('\n');
-        // Se a vlanif for gigante, aqui podemos dar um slice, mas por enquanto vai em uma msg
-        mensagensSaida.push(msg);
-    }
-
-    // Montando Mensagem de Físicas
-    if (grupos['FISICAS'].length > 0) {
-        let msg = `🔌 *FÍSICAS - ${nomeSw}*\n` + grupos['FISICAS'].join('\n');
-        mensagensSaida.push(msg);
-    }
-
-    // Retorna um Array. O index.js vai precisar ser ajustado para enviar múltiplas msgs se for um array.
-    return mensagensSaida.length > 0 ? mensagensSaida : "❌ Nenhuma interface encontrada.";
+    return msgs.length > 0 ? msgs : "❌ Nenhuma interface encontrada.";
 }
 
-// Manter as outras funções iguais...
+// Funções auxiliares (Confirmacao, Status e Relatorio de Sinal) seguem abaixo...
 function formatarConfirmacao(nomeSw, porta, log, acao) {
     const partes = log.split(/display this/i);
     let configAtual = "Configuração não capturada.";
