@@ -1,30 +1,36 @@
-# 🌐 Gestor de Switches Huawei - WhatsApp Bot (v1.0.4)
+# 🤖 Switch Automation Bot (Huawei Backbone)
 
-Sistema de automação para monitoramento e gestão de infraestrutura de rede Planalto Net via WhatsApp.
+Bot de automação via WhatsApp para gestão de ativos de rede Huawei (**NE8000** e **Switches**). Focado em agilidade operacional e diagnóstico de backbone em tempo real.
 
-## 🛠️ Comandos do WhatsApp
-Envie no formato: `ID_SWITCH COMANDO`
+## 🚀 Funcionalidades Principais
+
+*   **Diagnóstico de Sinal (RX):** Leitura de potência óptica com suporte a interfaces **100GE (4 lanes)** e detecção dinâmica de limite crítico baseado no hardware.
+*   **Listagem Agrupada:** Visualização de interfaces divididas por tecnologia (`Eth-Trunk`, `100GE`, `10G`, `VLANs`).
+*   **Filtro de Ruído:** Remoção automática de interfaces virtuais (`Loopback`, `Tunnel`, `NULL`, `MEth`) para clareza operacional.
+*   **Manobras com Recibo:** Comandos de `shutdown` e `undo shutdown` com confirmação automática via `display this` (Recibo do Terminal).
+
+## 🛠️ Guia de Comandos
+
+A sintaxe padrão é: `[ID do Switch] [Comando/Porta]`.
 
 | Comando | Descrição | Exemplo |
 | :--- | :--- | :--- |
-| **ID + Porta** | Consulta Diagnóstico de Sinal (RX) | `1 c1` |
-| **ID + Porta?** | Consulta Status (Up/Down) | `1 c1?` |
-| **ID + Portas** | Desligar Porta (Shutdown) | `1 c1s` |
-| **ID + Portau** | Religar Porta (Unshutdown) | `1 c1u` |
+| **`l`** | Lista interfaces físicas agrupadas e limpas. | `2 l` |
+| **`[Porta]`** | Mostra o sinal RX (detalhado para 100G). | `3 c1` |
+| **`[Porta]?`** | Status rápido (PHY/Protocolo/Descrição). | `1 x5?` |
+| **`[Porta]u`** | **Unshutdown**: Liga a interface + Recibo visual. | `2 c1u` |
+| **`[Porta]s`** | **Shutdown**: Desliga a interface + Recibo visual. | `2 c1s` |
+| **`[Porta]f`** | **Full Config**: Traz o `display current-config` da porta. | `1 g2f` |
 
-> **Legenda de Portas:** g=1G, x=10G, e=25G, q=40G, c=100G.
+## 📦 Estrutura do Módulo
 
-## 🖥️ Gestão via Terminal (Scripts Python)
-Scripts auxiliares para manutenção da base de dados local.
+*   `telnet.js`: Núcleo de comunicação Telnet e parsing de comandos Huawei VRP.
+*   `switches.js`: Cadastro de IPs, nomes e credenciais dos ativos.
+*   `jocawpp.py`: Integração com a API do WhatsApp para notificações.
 
-### 1. Gestão de Switches (`addsw.py`)
-- **Adicionar:** `python3 addsw.py $NOME $IP $USER $PASS [$MODELO] [$PROTOCOLO]`
-- **Listar Cadastrados:** `python3 addsw.py -l`
-- **Ajuda:** `python3 addsw.py --help`
+## 🔧 Execução em Produção
 
-### 2. Gestão de Modelos (`addmodel.py`)
-- **Adicionar:** `python3 addmodel.py $MODELO $PORTAS`
-- **Listar Cadastrados:** `python3 addmodel.py -l`
-- **Ajuda:** `python3 addmodel.py --help`
-
----
+Utilize o PM2 para garantir que o bot permaneça online:
+```bash
+pm2 start index.js --name rede-wpp-bot
+pm2 save
