@@ -10,7 +10,6 @@ headers = {
     "Content-Type": "application/json"
 }
 
-# Payload conforme o Swagger para filtrar grupos
 payload = {
     "onlyGroups": True
 }
@@ -19,15 +18,24 @@ try:
     r = requests.post(URL, json=payload, headers=headers)
     
     if r.status_code in [200, 201]:
-        # A API retorna uma LISTA direta: [ {...}, {...} ]
         dados = r.json()
         
         if isinstance(dados, list):
             print(f"{'NOME DO GRUPO':<35} | {'ID (JID)':<35}")
             print("-" * 75)
             for chat in dados:
-                nome = chat.get('name') or "Sem Nome"
-                # O ID pode vir como string ou objeto. Tratamos ambos:
+                # --- AJUSTE AQUI ---
+                # Tenta pegar o nome de várias fontes possíveis na API
+                nome = chat.get('name') or chat.get('formattedTitle')
+                
+                # Se ainda for None, tenta buscar dentro do objeto de contato
+                if not nome and chat.get('contact'):
+                    nome = chat.get('contact').get('name') or chat.get('contact').get('pushname')
+                
+                if not nome:
+                    nome = "Sem Nome"
+                # -------------------
+
                 jid = chat.get('id')
                 if isinstance(jid, dict):
                     jid = jid.get('_serialized')
@@ -35,7 +43,6 @@ try:
                 print(f"{str(nome)[:34]:<35} | {str(jid):<35}")
         else:
             print("⚠️ A resposta não veio no formato de lista esperado.")
-            print("Resposta bruta:", dados)
     else:
         print(f"❌ Erro na API ({r.status_code}): {r.text}")
 
