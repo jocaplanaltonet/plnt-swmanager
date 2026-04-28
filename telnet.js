@@ -17,6 +17,8 @@ export async function consultarPorta(msg) {
     let acao = 'sinal';
     if (portaInput === 'l') acao = 'listar';
     else if (portaInput.endsWith('?')) { acao = 'status'; portaInput = portaInput.replace('?', ''); }
+    else if (portaInput.endsWith('s')) { acao = 'shutdown'; portaInput = portaInput.slice(0, -1); }
+    else if (portaInput.endsWith('u')) { acao = 'unshutdown'; portaInput = portaInput.slice(0, -1); }
     else if (portaInput.endsWith('f')) { acao = 'full'; portaInput = portaInput.slice(0, -1); }
 
     let portaReal = "";
@@ -41,8 +43,10 @@ export async function consultarPorta(msg) {
             if (finalizado) return;
             finalizado = true;
             client.destroy();
+            
             if (acao === 'listar') resolve(formatarListaGeral(sw.nome, buffer));
             else if (acao === 'full') resolve(formatarConfigFull(sw.nome, portaReal, buffer));
+            else if (acao === 'shutdown' || acao === 'unshutdown') resolve(formatarConfirmacao(sw.nome, portaReal, buffer, acao));
             else resolve(gerarRelatorio(sw.nome, portaReal, buffer));
         };
 
@@ -76,6 +80,10 @@ export async function consultarPorta(msg) {
                             setTimeout(() => {
                                 if (acao === 'full') {
                                     client.write(`dis cu int ${portaReal}\r\n`);
+                                } else if (acao === 'shutdown' || acao === 'unshutdown') {
+                                    const cmd = acao === 'shutdown' ? 'shutdown' : 'undo shutdown';
+                                    client.write(`interface ${portaReal}\r\n${cmd}\r\n`);
+                                    setTimeout(() => client.write('display this\r\n'), 800);
                                 } else {
                                     client.write(`dis int ${portaReal} | inc Description\r\n`);
                                     client.write(`dis trans diag int ${portaReal}\r\n`);
@@ -86,8 +94,8 @@ export async function consultarPorta(msg) {
                         setTimeout(() => {
                             client.write('ret\r\n');
                             client.write('q\r\n');
-                            setTimeout(encerrar, 3000);
-                        }, 6000);
+                            setTimeout(encerrar, 2500);
+                        }, 5500);
                     }, 1000);
                 }, 1500);
             }
@@ -97,6 +105,17 @@ export async function consultarPorta(msg) {
     });
 }
 
+function formatarConfirmacao(nomeSw, porta, log, acao) {
+    const status = (acao === 'unshutdown') ? '✅ *REATIVADA (UP)*' : '🚫 *DESLIGADA (DOWN)*';
+    
+    // Captura o bloco entre os '#' que o 'display this' gera
+    const regexThis = /#([\s\S]*?)#/g;
+    const matches = log.match(regexThis);
+    let configAtual = matches ? matches[matches.length - 1].trim() : "Configuração não capturada.";
+
+    return `⚡ *MANOBRA DE INTERFACE*\n\n*SW:* ${nomeSw}\n*Porta:* ${porta}\n*Status:* ${status}\n\n*Recibo do Terminal (dis this):*\n\`\`\`\n#\n${configAtual}\n#\n\`\`\`\n────────────────\n_Ação confirmada via hardware._`;
+}
+
 function formatarListaGeral(nomeSw, log) {
     const linhas = log.split(/\r?\n/);
     let trunks = [], vlans = [], xg = [], ge100 = [], outros = [];
@@ -104,24 +123,13 @@ function formatarListaGeral(nomeSw, log) {
     linhas.forEach(linha => {
         const l = linha.trim();
         const match = l.match(/^([a-zA-Z0-9\/\.\-]+)\s+(up|down|\*down)\s+(up|down|up\(s\))\s*(.*)/i);
-        
         if (match) {
             const [_, interfaceNome, phy, proto, desc] = match;
             const nameL = interfaceNome.toLowerCase();
-
-            // REGRA DE EXCLUSÃO: Ignora interfaces virtuais e de gerência
-            if (nameL.startsWith('loop') || 
-                nameL.startsWith('meth') || 
-                nameL.startsWith('null') || 
-                nameL.startsWith('tun')) {
-                return; 
-            }
-
+            if (nameL.startsWith('loop') || nameL.startsWith('meth') || nameL.startsWith('null') || nameL.startsWith('tun')) return; 
             let emoji = (phy.toLowerCase() === 'up') ? '✅' : '❌';
             if (phy.toLowerCase().includes('*down')) emoji = '🚫';
-            
             const txt = `${emoji} \`${interfaceNome.padEnd(20)}\` | \`${phy}/${proto}\` | ${desc.trim() || '---'}`;
-
             if (nameL.includes('eth-trunk')) trunks.push(txt);
             else if (nameL.includes('vlanif')) vlans.push(txt);
             else if (nameL.includes('100ge')) ge100.push(txt);
@@ -136,8 +144,7 @@ function formatarListaGeral(nomeSw, log) {
     if (xg.length > 0) msg += `⚡ *INTERFACES XG (10G)*\n${xg.join('\n')}\n\n`;
     if (vlans.length > 0) msg += `🌐 *VLAN INTERFACES*\n${vlans.join('\n')}\n\n`;
     if (outros.length > 0) msg += `🔌 *OUTRAS (GE/25GE)*\n${outros.join('\n')}`;
-
-    return msg || `❌ Nenhuma interface física capturada em ${nomeSw}.`;
+    return msg;
 }
 
 function gerarRelatorio(nomeSw, porta, log) {
