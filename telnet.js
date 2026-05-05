@@ -15,11 +15,21 @@ export async function consultarPorta(msg) {
     if (!sw) return "❌ Switch não cadastrado.";
 
     let acao = 'sinal';
-    if (portaInput === 'l') acao = 'listar';
-    else if (portaInput.endsWith('?')) { acao = 'status'; portaInput = portaInput.replace('?', ''); }
-    else if (portaInput.endsWith('s')) { acao = 'shutdown'; portaInput = portaInput.slice(0, -1); }
-    else if (portaInput.endsWith('u')) { acao = 'unshutdown'; portaInput = portaInput.slice(0, -1); }
-    else if (portaInput.endsWith('f')) { acao = 'full'; portaInput = portaInput.slice(0, -1); }
+    if (portaInput === 'l') {
+        acao = 'listar';
+    } else if (portaInput.endsWith('?')) {
+        acao = 'status';
+        portaInput = portaInput.replace('?', '');
+    } else if (portaInput.endsWith('s')) {
+        acao = 'shutdown';
+        portaInput = portaInput.slice(0, -1);
+    } else if (portaInput.endsWith('u')) {
+        acao = 'unshutdown';
+        portaInput = portaInput.slice(0, -1);
+    } else if (portaInput.endsWith('f')) {
+        acao = 'full';
+        portaInput = portaInput.slice(0, -1);
+    }
 
     let portaReal = "";
     if (acao !== 'listar') {
@@ -47,6 +57,7 @@ export async function consultarPorta(msg) {
             if (acao === 'listar') resolve(formatarListaGeral(sw.nome, buffer));
             else if (acao === 'full') resolve(formatarConfigFull(sw.nome, portaReal, buffer));
             else if (acao === 'shutdown' || acao === 'unshutdown') resolve(formatarConfirmacao(sw.nome, portaReal, buffer, acao));
+            else if (acao === 'status') resolve(formatarStatus(sw.nome, portaReal, buffer));
             else resolve(gerarRelatorio(sw.nome, portaReal, buffer));
         };
 
@@ -79,21 +90,23 @@ export async function consultarPorta(msg) {
                             client.write('sys\r\n');
                             setTimeout(() => {
                                 if (acao === 'full') {
-                                    client.write(`dis cu int ${portaReal}\r\n`);
+                                    client.write(`display current-configuration interface ${portaReal}\r\n`);
                                 } else if (acao === 'shutdown' || acao === 'unshutdown') {
                                     const cmd = acao === 'shutdown' ? 'shutdown' : 'undo shutdown';
                                     client.write(`interface ${portaReal}\r\n${cmd}\r\n`);
                                     setTimeout(() => client.write('display this\r\n'), 800);
+                                } else if (acao === 'status') {
+                                    client.write(`display interface ${portaReal}\r\n`);
                                 } else {
-                                    client.write(`dis int ${portaReal} | inc Description\r\n`);
-                                    client.write(`dis trans diag int ${portaReal}\r\n`);
+                                    client.write(`display interface ${portaReal} | include Description\r\n`);
+                                    client.write(`display transceiver diagnosis interface ${portaReal}\r\n`);
                                 }
                             }, 1000);
                         }
                         
                         setTimeout(() => {
-                            client.write('ret\r\n');
-                            client.write('q\r\n');
+                            client.write('return\r\n');
+                            client.write('quit\r\n');
                             setTimeout(encerrar, 2500);
                         }, 5500);
                     }, 1000);
@@ -107,13 +120,46 @@ export async function consultarPorta(msg) {
 
 function formatarConfirmacao(nomeSw, porta, log, acao) {
     const status = (acao === 'unshutdown') ? '✅ *REATIVADA (UP)*' : '🚫 *DESLIGADA (DOWN)*';
-    
-    // Captura o bloco entre os '#' que o 'display this' gera
     const regexThis = /#([\s\S]*?)#/g;
     const matches = log.match(regexThis);
     let configAtual = matches ? matches[matches.length - 1].trim() : "Configuração não capturada.";
 
     return `⚡ *MANOBRA DE INTERFACE*\n\n*SW:* ${nomeSw}\n*Porta:* ${porta}\n*Status:* ${status}\n\n*Recibo do Terminal (dis this):*\n\`\`\`\n#\n${configAtual}\n#\n\`\`\`\n────────────────\n_Ação confirmada via hardware._`;
+}
+
+function formatarStatus(nomeSw, porta, log) {
+    const linhas = log.split(/\r?\n/);
+    let estado = "Não localizado";
+    let protocolo = "Não localizado";
+    let descricao = "---";
+    let inputUtil = "0%";
+    let outputUtil = "0%";
+
+    for (const linha of linhas) {
+        const l = linha.trim();
+        if (l.includes("current state :") && !l.includes("Line protocol")) {
+            estado = l.replace(/^.*current state\s*:/i, '').trim();
+        } else if (l.includes("Line protocol current state :")) {
+            protocolo = l.replace(/^.*line protocol current state\s*:/i, '').trim();
+        } else if (l.includes("Description:")) {
+            descricao = l.split(':')[1]?.trim() || "---";
+        } else if (l.startsWith("Input bandwidth utilization")) {
+            inputUtil = l.split(':')[1]?.trim() || "0%";
+        } else if (l.startsWith("Output bandwidth utilization")) {
+            outputUtil = l.split(':')[1]?.trim() || "0%";
+        }
+    }
+
+    if (protocolo === "Não localizado" && estado.toLowerCase().includes("down")) {
+        protocolo = "DOWN";
+    }
+
+    let statusMsg = "✅ *LINK ESTÁVEL E SAUDÁVEL*";
+    if (estado.toLowerCase() !== 'up' || protocolo.toLowerCase() !== 'up') {
+        statusMsg = "🚨 *ATENÇÃO: LINK INOPERANTE (DOWN)*";
+    }
+
+    return `📌 *STATUS DA INTERFACE*\n\n*SW:* ${nomeSw}\n*Porta:* ${porta}\n\n*Estado:* ${estado}\n*Protocolo:* ${protocolo}\n*Descrição:* ${descricao}\n────────────────\n*Utilização de Banda:*\nInput bandwidth utilization  : ${inputUtil}\nOutput bandwidth utilization : ${outputUtil}\n────────────────\n${statusMsg}`;
 }
 
 function formatarListaGeral(nomeSw, log) {
@@ -127,9 +173,12 @@ function formatarListaGeral(nomeSw, log) {
             const [_, interfaceNome, phy, proto, desc] = match;
             const nameL = interfaceNome.toLowerCase();
             if (nameL.startsWith('loop') || nameL.startsWith('meth') || nameL.startsWith('null') || nameL.startsWith('tun')) return; 
+            
             let emoji = (phy.toLowerCase() === 'up') ? '✅' : '❌';
             if (phy.toLowerCase().includes('*down')) emoji = '🚫';
+            
             const txt = `${emoji} \`${interfaceNome.padEnd(20)}\` | \`${phy}/${proto}\` | ${desc.trim() || '---'}`;
+            
             if (nameL.includes('eth-trunk')) trunks.push(txt);
             else if (nameL.includes('vlanif')) vlans.push(txt);
             else if (nameL.includes('100ge')) ge100.push(txt);
@@ -149,46 +198,74 @@ function formatarListaGeral(nomeSw, log) {
 
 function gerarRelatorio(nomeSw, porta, log) {
     const linhas = log.split(/\r?\n/);
-    let lanes = [];
-    let limiteCritico = -13.00;
+    let lanesEncontradas = [];
+    let limiteCritico = -13.64; 
     let descricao = "---";
+
     const linhaDesc = linhas.find(l => l.toLowerCase().includes('description:'));
     if (linhaDesc) descricao = linhaDesc.split(':')[1]?.trim() || "---";
-    const regexBloco = /RxPower\(dBm\)([\s\S]*?)(?=TxPower|Bias|Temp|Voltage|Current|$)/i;
-    const blocoSinal = log.match(regexBloco);
-    if (blocoSinal && blocoSinal[0]) {
-        const matches = blocoSinal[0].match(/([-+]\d+\.\d+)/g);
-        if (matches && matches.length >= 2) {
-            limiteCritico = parseFloat(matches[1]);
-            matches.forEach(m => {
-                const val = parseFloat(m);
-                if (val < 5 && val > -40 && val !== limiteCritico) lanes.push(val);
-            });
-        }
-    } else {
-        linhas.forEach(l => {
-            if (l.toLowerCase().includes('rxpower')) {
-                const m = l.match(/([-+]\d+\.\d+)/g);
-                if (m) {
-                    lanes.push(parseFloat(m[0]));
-                    if (m[1]) limiteCritico = parseFloat(m[1]);
-                }
+
+    const rxAlarmLine = linhas.find(l => l.includes('RxPower lane'));
+    if (rxAlarmLine) {
+        const parts = rxAlarmLine.trim().split(/\s+/);
+        if (parts.length >= 6) {
+            const alarm = parseFloat(parts[5]);
+            if (!isNaN(alarm)) {
+                limiteCritico = alarm;
             }
-        });
+        }
     }
-    const lanesUnicas = [...new Set(lanes)].sort((a, b) => a - b);
-    if (lanesUnicas.length === 0) return `❌ *Sinal não localizado* em ${nomeSw}\n*Porta:* ${porta}\n*Desc:* ${descricao}`;
-    const piorRX = lanesUnicas[0];
-    const statusSinal = piorRX <= limiteCritico ? "🚨 SINAL CRÍTICO" : "✅ SINAL NORMAL";
-    let msg = `📡 *DIAGNÓSTICO DE SINAL (RX)*\n\n*SW:* ${nomeSw}\n*Porta:* ${porta}\n*Desc:* ${descricao}\n────────────────\n`;
-    lanesUnicas.forEach((v, i) => { msg += `📶 Lane ${i}: ${v.toFixed(2)} dBm\n`; });
-    msg += `────────────────\n📉 Pior RX: ${piorRX.toFixed(2)} dBm\n📉 Lim. Crítico (Low): ${limiteCritico.toFixed(2)} dBm\n────────────────\n*${statusSinal}*`;
+
+    for (const linha of linhas) {
+        const l = linha.trim();
+        if (l.includes("RxPower lane")) {
+            const partes = l.split(/\s+/);
+            const valor = parseFloat(partes[2]);
+            if (!isNaN(valor)) {
+                lanesEncontradas.push(valor);
+            }
+        }
+    }
+
+    const lanesFinais = [...new Set(lanesEncontradas)].slice(0, 4).sort((a, b) => a - b);
+
+    if (lanesFinais.length === 0) {
+        return `❌ *Sinal não localizado* em ${nomeSw}\n*Porta:* ${porta}\n*Desc:* ${descricao}`;
+    }
+
+    const piorRX = lanesFinais[0];
+    const statusSinal = piorRX <= limiteCritico ? "🚨 *SINAL CRÍTICO*" : "✅ *SINAL NORMAL*";
+
+    let msg = `📡 *DIAGNÓSTICO DE SINAL (RX)*\n\n`;
+    msg += `*SW:* ${nomeSw}\n`;
+    msg += `*Porta:* ${porta}\n`;
+    msg += `*Desc:* ${descricao}\n`;
+    msg += `────────────────\n`;
+    
+    lanesFinais.forEach((v, i) => {
+        msg += `📶 Lane ${i}: ${v.toFixed(2)} dBm\n`;
+    });
+
+    msg += `────────────────\n`;
+    msg += `📉 Pior RX: ${piorRX.toFixed(2)} dBm\n`;
+    msg += `📉 Lim. Crítico (Low): ${limiteCritico.toFixed(2)} dBm\n`;
+    msg += `────────────────\n`;
+    msg += `${statusSinal}`;
+
     return msg;
 }
 
 function formatarConfigFull(nomeSw, porta, log) {
     const portaBusca = porta.replace(/\s+/g, '');
-    const regex = new RegExp(`interface\\s*${portaBusca}[\\s\\S]*?#`, 'i');
+    const regex = new RegExp(`interface\\s*${portaBusca}[\\s\\S]*?(?=#|return|$)`, 'i');
     const match = log.match(regex);
-    return `📄 *CONFIGURAÇÃO ATUAL*\n\n*SW:* ${nomeSw}\n*Porta:* ${porta}\n────────────────\n\`\`\`\n${match ? match[0].trim() : 'Não localizado'}\n\`\`\`\n────────────────`;
+    let config = match ? match[0].trim() : null;
+
+    if (!config) {
+        const regexComEspaco = new RegExp(`interface\\s*${porta}[\\s\\S]*?(?=#|return|$)`, 'i');
+        const matchEspaco = log.match(regexComEspaco);
+        config = matchEspaco ? matchEspaco[0].trim() : 'Não localizado no buffer de log.';
+    }
+
+    return `📄 *CONFIGURAÇÃO ATUAL*\n\n*SW:* ${nomeSw}\n*Porta:* ${porta}\n────────────────\n\`\`\`\n${config}\n\`\`\`\n────────────────`;
 }
