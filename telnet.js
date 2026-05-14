@@ -205,25 +205,53 @@ function gerarRelatorio(nomeSw, porta, log) {
     const linhaDesc = linhas.find(l => l.toLowerCase().includes('description:'));
     if (linhaDesc) descricao = linhaDesc.split(':')[1]?.trim() || "---";
 
-    const rxAlarmLine = linhas.find(l => l.includes('RxPower lane'));
-    if (rxAlarmLine) {
-        const parts = rxAlarmLine.trim().split(/\s+/);
-        if (parts.length >= 6) {
-            const alarm = parseFloat(parts[5]);
-            if (!isNaN(alarm)) {
-                limiteCritico = alarm;
+    for (let i = 0; i < linhas.length; i++) {
+        const l = linhas[i].trim();
+        if (l.startsWith("RxPower(dBm)")) {
+            const parts = l.split(/\s+/);
+            if (l.includes(' lane') || l.includes(' lane0')) {
+                const alarm = parseFloat(parts[3]);
+                if (!isNaN(alarm)) {
+                    limiteCritico = alarm;
+                }
+            } else {
+                const alarm = parseFloat(parts[2]);
+                if (!isNaN(alarm)) {
+                    limiteCritico = alarm;
+                }
             }
+            break;
         }
     }
 
-    for (const linha of linhas) {
-        const l = linha.trim();
-        if (l.includes("RxPower lane")) {
-            const partes = l.split(/\s+/);
-            const valor = parseFloat(partes[2]);
-            if (!isNaN(valor)) {
-                lanesEncontradas.push(valor);
+    for (let i = 0; i < linhas.length; i++) {
+        const l = linhas[i].trim();
+        if (l.startsWith("RxPower(dBm)")) {
+            const parts = l.split(/\s+/);
+            if (l.includes('lane') || l.includes('Lane')) {
+                const valor = parseFloat(parts[1]);
+                if (!isNaN(valor)) {
+                    lanesEncontradas.push(valor);
+                }
+                for (let j = 1; j <= 3; j++) {
+                    if (i + j < linhas.length) {
+                        const nextLine = linhas[i + j].trim();
+                        if (nextLine.includes('lane')) {
+                            const nextParts = nextLine.split(/\s+/);
+                            const val = parseFloat(nextParts[0]);
+                            if (!isNaN(val)) {
+                                lanesEncontradas.push(val);
+                            }
+                        }
+                    }
+                }
+            } else {
+                const valor = parseFloat(parts[1]);
+                if (!isNaN(valor)) {
+                    lanesEncontradas.push(valor);
+                }
             }
+            break;
         }
     }
 
@@ -242,12 +270,16 @@ function gerarRelatorio(nomeSw, porta, log) {
     msg += `*Desc:* ${descricao}\n`;
     msg += `────────────────\n`;
     
-    lanesFinais.forEach((v, i) => {
-        msg += `📶 Lane ${i}: ${v.toFixed(2)} dBm\n`;
-    });
+    if (lanesFinais.length > 1) {
+        lanesFinais.forEach((v, i) => {
+            msg += `📶 Lane ${i}: ${v.toFixed(2)} dBm\n`;
+        });
+    } else {
+        msg += `📶 RX: ${piorRX.toFixed(2)} dBm\n`;
+    }
 
     msg += `────────────────\n`;
-    msg += `📉 Pior RX: ${piorRX.toFixed(2)} dBm\n`;
+    msg += `📉 Pior RX / RX: ${piorRX.toFixed(2)} dBm\n`;
     msg += `📉 Lim. Crítico (Low): ${limiteCritico.toFixed(2)} dBm\n`;
     msg += `────────────────\n`;
     msg += `${statusSinal}`;
