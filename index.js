@@ -11,7 +11,6 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 const { WPP_BASE_URL, WPP_TOKEN, PORTA_BOT, ALLOWED_CHATS } = process.env;
 const PORT = PORTA_BOT || 21466;
 
-// Lista de JIDs autorizados vinda do .env
 const chatsPermitidos = ALLOWED_CHATS ? ALLOWED_CHATS.split(',').map(id => id.trim()) : [];
 
 let processando = false;
@@ -25,7 +24,11 @@ const processarFila = async () => {
 
     try {
         console.log(`[FILA] Processando para ${sender}: ${body}`);
-        const resultado = await consultarPorta(body);
+        
+        // Passa o callback de progresso para enviar as atualizações parciais ao WhatsApp
+        const resultado = await consultarPorta(body, async (msgProgresso) => {
+            await enviarWpp(sender, msgProgresso);
+        });
         
         if (Array.isArray(resultado)) {
             for (const msg of resultado) {
@@ -39,7 +42,6 @@ const processarFila = async () => {
         console.error(`[ERRO FILA]`, error.message);
     } finally {
         processando = false;
-        // Pequeno intervalo entre itens da fila para evitar flood
         setTimeout(processarFila, 1000);
     }
 };
@@ -47,26 +49,26 @@ const processarFila = async () => {
 app.post('/webhook', async (req, res) => {
     const { event, body, from, chatId, fromMe } = req.body;
     
-    // Ignora mensagens próprias, eventos que não sejam mensagem ou corpo vazio
     if (fromMe || event !== 'onmessage' || !body) return res.sendStatus(200);
 
     const msgTexto = body.trim().toLowerCase();
     const sender = from || chatId;
 
-    // Segurança: Bloqueia chats não autorizados (se a lista não estiver vazia)
     if (chatsPermitidos.length > 0 && !chatsPermitidos.includes(sender)) {
         console.log(`[BLOQUEADO] Tentativa de acesso por: ${sender}`);
         return res.sendStatus(200);
     }
 
-    // COMANDO MENU: Ajustado para começar em 0
+    // 1. INTERCEPTA O MENU TRADICIONAL
     if (msgTexto === 'menu') {
         let listaTexto = "";
         listaSwitches.forEach((sw, index) => {
-            listaTexto += `*${index}* - ${sw.nome} _(${sw.modelo || 'Huawei'})_\n`;
+            const modeloSw = sw.modelo || "Huawei";
+            const versaoSw = sw.versao ? `_(${sw.versao})_` : "";
+            listaTexto += `*${index}* - ${sw.nome} — ${modeloSw} ${versaoSw}\n`;
         });
 
-        const meuMenu = `🖥️ *SISTEMA DE GESTÃO DE REDE*
+        const meuMenu = `🖥️ *PLNT-SWMANAGER | GESTÃO DE REDE*
 
 *EQUIPAMENTOS:*
 ${listaTexto.trim()}
@@ -75,36 +77,38 @@ ${listaTexto.trim()}
 • *Sinal:* \`ID\` + \`Porta\` (Ex: \`0 x1\`)
 • *Status:* \`ID\` + \`Porta?\` (Ex: \`0 c1?\`)
 • *Listar:* \`ID\` + \`l\` (Ex: \`0 l\`)
-• *Config:* \`ID\` + \`Portaf\` (Ex: \`0 x1f\`)
-• *Shut:* \`ID\` + \`Portas\` (Ex: \`0 c1s\`)
-• *Up:* \`ID\` + \`Portau\` (Ex: \`0 c1u\`)
+• *Varredura de Versão:* \`menu update\`
 
-📌 *LEG:* c=100G, q=40G, x=10G, g=1G
-_O sw-core agora é o ID 0._`;
+📌 *LEG:* c=100G, q=40G, x=10G, g=1G`;
 
         await enviarWpp(sender, meuMenu);
-        return res.status(200).send('OK');
+        return res.sendStatus(200);
     }
 
-    // REGEX: Aceita "0 x1", "13q1", etc.
+    // 2. INTERCEPTA O COMANDO DE UPDATE E JOGA NA FILA SEQUENCIAL
+    if (msgTexto === 'menu update' || msgTexto === 'update') {
+        fila.push({ body: 'menu update', sender });
+        processarFila();
+        return res.sendStatus(200);
+    }
+
+    // 3. REGEX PARA COMANDOS TRADICIONAIS (Começando com número do ID do switch)
     const match = msgTexto.match(/^(\d+)\s*(.*)$/);
     if (match) {
         const id = match[1];
         const cmd = match[2].trim();
 
         if (id && cmd) {
-            // Normaliza a mensagem para a fila (garante espaço entre ID e Comando)
             fila.push({ body: `${id} ${cmd}`, sender });
             processarFila();
         }
     }
 
-    res.status(200).send('OK');
+    res.sendStatus(200);
 });
 
 async function enviarWpp(to, text) {
     try {
-        // Limpeza simples do JID para o formato da API
         const apenasNumeros = to.split('@')[0].split(':')[0];
         const eGrupo = to.includes('@g.us');
 
@@ -125,5 +129,5 @@ async function enviarWpp(to, text) {
 }
 
 app.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 Webhook Planalto Net online na porta ${PORT}`);
+    console.log(`🚀 Webhook plnt-swmanager online na porta ${PORT}`);
 });
