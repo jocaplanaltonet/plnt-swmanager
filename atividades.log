@@ -1,0 +1,123 @@
+[26/12/2025, 15:42:07] 🚀 BOT HUAWEI INICIADO NA PORTA 5000
+[26/12/2025, 15:42:23] 📩 Mensagem de 244787500343491@lid: /menu
+[26/12/2025, 15:42:23] 📩 Mensagem de 558192175899@c.us: 🏠 *gestor de switches*
+
+📍 *equipamentos:*
+*1* - sw_core (s6730-h48x6c-100g)
+*2* - bkb_carpina_02 (s6730-h24x6c-40g)
+
+💡 use: `/diag [id] [porta]`
+[26/12/2025, 15:42:23] ✅ Resposta enviada para 244787500343491@lid
+[26/12/2025, 15:42:24] 📩 Mensagem de 558192175899@c.us: 🏠 *gestor de switches*
+
+📍 *equipamentos:*
+*1* - sw_core (s6730-h48x6c-100g)
+*2* - bkb_carpina_02 (s6730-h24x6c-40g)
+
+💡 use: `/diag [id] [porta]`
+[26/12/2025, 15:44:12] 📩 Mensagem de 244787500343491@lid: diag 1 1
+[26/12/2025, 15:44:18] 📩 Mensagem de 244787500343491@lid: /diag 1 1
+[26/12/2025, 15:44:23] 📩 Mensagem de 244787500343491@lid: /menu
+[26/12/2025, 15:44:24] 📩 Mensagem de 558192175899@c.us: 🏠 *gestor de switches*
+
+📍 *equipamentos:*
+*1* - sw_core (s6730-h48x6c-100g)
+*2* - bkb_carpina_02 (s6730-h24x6c-40g)
+
+💡 use: `/diag [id] [porta]`
+[26/12/2025, 15:44:24] ✅ Resposta enviada para 244787500343491@lid
+[26/12/2025, 15:44:24] 📩 Mensagem de 558192175899@c.us: 🏠 *gestor de switches*
+
+📍 *equipamentos:*
+*1* - sw_core (s6730-h48x6c-100g)
+*2* - bkb_carpina_02 (s6730-h24x6c-40g)
+
+💡 use: `/diag [id] [porta]`
+[26/12/2025, 15:44:31] 📩 Mensagem de 244787500343491@lid: /diag 1 1
+[26/12/2025, 15:44:33] 📩 Mensagem de 558192175899@c.us: ❌ erro no switch: erro telnet no host 10.12.255.202: cannot connect
+[26/12/2025, 15:44:33] ✅ Resposta enviada para 244787500343491@lid
+[26/12/2025, 15:44:33] 📩 Mensagem de 558192175899@c.us: ❌ erro no switch: erro telnet no host 10.12.255.202: cannot connect
+[26/12/2025, 15:44:46] 📩 Mensagem de 558192175899@c.us: ❌ erro no switch: erro telnet no host 10.12.255.202: cannot connect
+[26/12/2025, 15:44:46] ✅ Resposta enviada para 244787500343491@lid
+[26/12/2025, 15:44:46] 📩 Mensagem de 558192175899@c.us: ❌ erro no switch: erro telnet no host 10.12.255.202: cannot connect
+[26/12/2025, 15:45:50] 🚀 BOT ONLINE - MODO SIMPLIFICADO
+[26/12/2025, 15:46:02] 📩 Mensagem de 244787500343491@lid: /menu
+[26/12/2025, 15:46:03] 📩 Mensagem de 558192175899@c.us: 🏠 *gestor de switches*
+
+📍 *equipamentos:*
+*1* - sw_core
+*2* - bkb_carpina_02
+
+💡 *para diagnosticar, envie apenas:* `id porta`
+exemplo: `1 5`
+[26/12/2025, 15:46:03] 📩 Mensagem de 558192175899@c.us: 🏠 *gestor de switches*
+
+📍 *equipamentos:*
+*1* - sw_core
+*2* - bkb_carpina_02
+
+💡 *para diagnosticar, envie apenas:* `id porta`
+exemplo: `1 5`
+[26/12/2025, 15:46:15] 📩 Mensagem de 244787500343491@lid: 1 1
+[26/12/2025, 15:46:15] 📩 Mensagem de 558192175899@c.us: ⏳ acessando sw_core (porta xgigabitethernet0/0/1)...
+[26/12/2025, 15:46:15] 📩 Mensagem de 558192175899@c.us: ⏳ acessando sw_core (porta xgigabitethernet0/0/1)...
+[26/12/2025, 15:46:30] 📩 Mensagem de 558192175899@c.us: ❌ erro no switch: erro telnet no host 10.12.255.202: cannot connect
+[26/12/2025, 15:46:30] 📩 Mensagem de 558192175899@c.us: ❌ erro no switch: erro telnet no host 10.12.255.202: cannot connect
+[26/12/2025, 15:47:24] 🚀 BOT ONLINE - MODO SIMPLIFICADO
+[26/12/2025, 15:47:36] 📩 Mensagem de 244787500343491@lid: /menu
+[26/12/2025, 15:47:37] 📩 Mensagem de 558192175899@c.us: 🏠 *gestor de switches*
+
+📍 *equipamentos:*
+*1* - sw_core
+*2* - bkb_carpina_02
+
+💡 *para diagnosticar, envie apenas:* `id porta`
+exemplo: `1 5`
+[26/12/2025, 15:47:37] 📩 Mensagem de 558192175899@c.us: 🏠 *gestor de switches*
+
+📍 *equipamentos:*
+*1* - sw_core
+*2* - bkb_carpina_02
+
+💡 *para diagnosticar, envie apenas:* `id porta`
+exemplo: `1 5`
+[26/12/2025, 15:47:40] 📩 Mensagem de 244787500343491@lid: 1 1
+[26/12/2025, 15:47:41] 📩 Mensagem de 558192175899@c.us: ⏳ acessando sw_core (porta xgigabitethernet0/0/1)...
+[26/12/2025, 15:47:41] 📩 Mensagem de 558192175899@c.us: ⏳ acessando sw_core (porta xgigabitethernet0/0/1)...
+[26/12/2025, 15:47:56] 📩 Mensagem de 558192175899@c.us: ❌ erro no switch: erro telnet no host 10.12.255.202: cannot connect
+[26/12/2025, 15:47:56] 📩 Mensagem de 558192175899@c.us: ❌ erro no switch: erro telnet no host 10.12.255.202: cannot connect
+[26/12/2025, 15:48:12] 🚀 BOT INICIADO - ARQUIVO DE LOG: /opt/gestao-redes-bot/atividades.log
+[26/12/2025, 15:48:22] 📩 Mensagem recebida de 244787500343491@lid: /menu
+[26/12/2025, 15:48:22] 📩 Mensagem recebida de 558192175899@c.us: 🏠 *gestor de switches*
+
+📍 *equipamentos:*
+*1* - sw_core
+*2* - bkb_carpina_02
+
+💡 *envie:* `id porta` (ex: 1 5)
+[26/12/2025, 15:48:22] ✅ Resposta enviada para 244787500343491@lid
+[26/12/2025, 15:48:22] 📩 Mensagem recebida de 558192175899@c.us: 🏠 *gestor de switches*
+
+📍 *equipamentos:*
+*1* - sw_core
+*2* - bkb_carpina_02
+
+💡 *envie:* `id porta` (ex: 1 5)
+[26/12/2025, 15:48:38] 📩 Mensagem recebida de 244787500343491@lid: 1 1
+[26/12/2025, 15:48:38] 🔍 Iniciando diagnóstico: SW 1 Porta 1
+[26/12/2025, 15:49:15] 📩 Mensagem recebida de 558182479774: menu
+[26/12/2025, 15:49:16] 📩 Mensagem recebida de 558192175899@c.us: 🏠 *gestor de switches*
+
+📍 *equipamentos:*
+*1* - sw_core
+*2* - bkb_carpina_02
+
+💡 *envie:* `id porta` (ex: 1 5)
+[26/12/2025, 15:49:16] ✅ Resposta enviada para 558182479774
+[26/12/2025, 15:49:16] 📩 Mensagem recebida de 558192175899@c.us: 🏠 *gestor de switches*
+
+📍 *equipamentos:*
+*1* - sw_core
+*2* - bkb_carpina_02
+
+💡 *envie:* `id porta` (ex: 1 5)

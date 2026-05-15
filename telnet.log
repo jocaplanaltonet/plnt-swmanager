@@ -1,6 +1,6 @@
 
 Warning: Telnet is not a secure protocol, and it is recommended to use Stelnet.
-  BKB_LCARRO 
+BKB_CHAN
 
 Login authentication
 
@@ -9,37 +9,42 @@ Username:jocabot
 Password:
 Info: The max number of VTY users is 10, and the number
       of current VTY users on line is 1.
-      The current login time is 2026-04-28 09:50:06-03:00.
-Info: Lastest accessed IP: 177.23.168.26  Time: 2026-04-28 09:07:35-03:00  Password will expire in: -
+      The current login time is 2026-05-15 10:21:11-03:00.
+Info: Lastest accessed IP: 177.23.168.26  Time: 2026-05-15 10:15:56-03:00  Password will expire in: -
 
 Info: Smart-upgrade is currently disabled. Enable Smart-upgrade to get recommended version information.
-<BKB-LCARRO>screen-length 0 temporary
+<BKB_CHAN>screen-length 0 temporary
 Info: The configuration takes effect on the current user terminal interface only.
-<BKB-LCARRO>sys
-Enter system view, return user view with Ctrl+Z.
-[BKB-LCARRO]dis int 100GE 0/0/1 | inc Description
-Description:DST_BKB_CARPINA_100GE0/0/1
-[BKB-LCARRO]dis trans diag int 100GE 0/0/1
-Port 100GE0/0/1 transceiver diagnostic information:
-Parameter        Current       Low Alarm    High Alarm
-  Type            Value        Threshold    Threshold    Status
--------------   ---------      ---------    ----------   --------
-TxPower(dBm)    -0.52 (lane0)  -8.50        4.50         normal
-                -0.06 (lane1)  
-                0.10  (lane2)  
-                -2.00 (lane3)  
-RxPower(dBm)    -8.83 (lane0)  -13.00       3.50         normal
-                -6.46 (lane1)  
-                -7.80 (lane2)  
-                -6.27 (lane3)  
-Current(mA)     45.36 (Lane0)  15.00        90.00        normal
-                45.36 (Lane1)  
-                45.36 (Lane2)  
-                45.36 (Lane3)  
-Temp.(C)      32.58          -5.00        75.00        normal
-Voltage(V)      3.25           3.13         3.46         normal
+<BKB_CHAN>display interface 40GE 0/0/1 | include Description
+Description:DST_BKB_PDLH_100GE0/0/3
+<BKB_CHAN>display transceiver diagnosis interface 40GE 0/0/1 | begin Rx
 
-[BKB-LCARRO]ret
-<BKB-LCARRO>q
+Port 40GE0/0/1 transceiver diagnostic information:
+--------------------------------------------------------------------------------------
+Item                   Value   HighAlarm    HighWarn    LowAlarm     LowWarn    Status
+--------------------------------------------------------------------------------------
+RxPower lane0(dBm)     -9.19       -4.00       -6.00      -25.09      -24.09    Normal
+RxPower lane1(dBm)     -8.59       -4.00       -6.00      -25.09      -24.09    Normal
+RxPower lane2(dBm)     -7.80       -4.00       -6.00      -25.09      -24.09    Normal
+RxPower lane3(dBm)     -6.77       -4.00       -6.00      -25.09      -24.09    Normal
+Current lane0(mA)      29.97      110.00      100.00        5.00       10.00    Normal
+Current lane1(mA)      30.25      110.00      100.00        5.00       10.00    Normal
+Current lane2(mA)      29.81      110.00      100.00        5.00       10.00    Normal
+Current lane3(mA)      30.06      110.00      100.00        5.00       10.00    Normal
+Temperature(C)         49.88       80.00       75.00      -10.00       -5.00    Normal
+Voltage(V)              3.31        3.80        3.70        2.70        2.80    Normal
+LaserTemp(C)               -           -           -           -           -    -
+TecCurrent(mA)             -           -           -           -           -    -
+MediaSNR(dB)               -           -           -           -           -    -
+--------------------------------------------------------------------------------------
+
+Versatile Diagnostics Monitoring:
+---------------------------------------------------------------------
+Item          Minimum     Maximum     Average     Current PriorPeriod
+---------------------------------------------------------------------
+Ber                 -           -           -           -           -
+Fer                 -           -           -           -           -
+---------------------------------------------------------------------
+<BKB_CHAN>quit
 Info: The max number of VTY users is 10, and the number
       of current VTY users on line is 0.

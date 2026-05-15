@@ -8,44 +8,35 @@ function gravarLogPuro(texto) {
 
 export async function consultarPorta(msg) {
     const partes = msg.trim().toLowerCase().split(/\s+/);
-    const idIndex = parseInt(partes[0]) - 1;
+    const idIndex = parseInt(partes[0]); 
     let portaInput = partes.slice(1).join('').replace(/\s+/g, ''); 
     const sw = listaSwitches[idIndex];
 
-    if (!sw) return "❌ Switch não cadastrado.";
+    if (!sw) return `❌ Switch não localizado na posição ${idIndex}.`;
 
     let acao = 'sinal';
-    if (portaInput === 'l') {
-        acao = 'listar';
-    } else if (portaInput.endsWith('?')) {
-        acao = 'status';
-        portaInput = portaInput.replace('?', '');
-    } else if (portaInput.endsWith('s')) {
-        acao = 'shutdown';
-        portaInput = portaInput.slice(0, -1);
-    } else if (portaInput.endsWith('u')) {
-        acao = 'unshutdown';
-        portaInput = portaInput.slice(0, -1);
-    } else if (portaInput.endsWith('f')) {
-        acao = 'full';
-        portaInput = portaInput.slice(0, -1);
-    }
+    if (portaInput === 'l') acao = 'listar';
+    else if (portaInput.endsWith('?')) { acao = 'status'; portaInput = portaInput.replace('?', ''); }
 
-    let portaReal = "";
-    if (acao !== 'listar') {
-        const dePara = { 'g': 'GigabitEthernet', 'x': 'XGigabitEthernet', 'q': '40GE', 'c': '100GE', 'e': '25GigabitEthernet' };
-        const prefixo = portaInput.charAt(0);
-        let numero = portaInput.substring(1);
-        if (!numero.includes('/')) numero = `0/0/${numero}`;
-        portaReal = `${dePara[prefixo]} ${numero}`;
-    }
+    const dePara = { 
+        'g': 'GigabitEthernet', 
+        'x': 'XGigabitEthernet', 
+        'q': '40GE', 
+        'c': '100GE',
+        'e': '25GigabitEthernet'
+    };
+    
+    const prefixo = portaInput.charAt(0);
+    let numero = portaInput.substring(1);
+    if (acao !== 'listar' && !numero.includes('/')) numero = `0/0/${numero}`;
+    const portaReal = `${dePara[prefixo] || 'GigabitEthernet'} ${numero}`;
 
     return new Promise((resolve) => {
         const client = new net.Socket();
         let buffer = '';
         let finalizado = false;
-        let comandosEnviados = false;
         let loginEtapa = 0;
+        let comandoEnviado = false;
 
         if (fs.existsSync('telnet.log')) fs.truncateSync('telnet.log');
 
@@ -53,10 +44,7 @@ export async function consultarPorta(msg) {
             if (finalizado) return;
             finalizado = true;
             client.destroy();
-            
             if (acao === 'listar') resolve(formatarListaGeral(sw.nome, buffer));
-            else if (acao === 'full') resolve(formatarConfigFull(sw.nome, portaReal, buffer));
-            else if (acao === 'shutdown' || acao === 'unshutdown') resolve(formatarConfirmacao(sw.nome, portaReal, buffer, acao));
             else if (acao === 'status') resolve(formatarStatus(sw.nome, portaReal, buffer));
             else resolve(gerarRelatorio(sw.nome, portaReal, buffer));
         };
@@ -77,227 +65,115 @@ export async function consultarPorta(msg) {
                 client.write(sw.senha + '\r\n');
                 loginEtapa = 2;
             } 
-            else if ((cleanOut.includes('<') || cleanOut.includes('[')) && loginEtapa === 2 && !comandosEnviados) {
-                comandosEnviados = true;
-                
+            else if ((cleanOut.includes('<') || cleanOut.includes('[')) && loginEtapa === 2 && !comandoEnviado) {
+                comandoEnviado = true;
                 setTimeout(() => {
                     client.write('screen-length 0 temporary\r\n');
-                    
                     setTimeout(() => {
                         if (acao === 'listar') {
                             client.write('display interface description\r\n');
                         } else {
-                            client.write('sys\r\n');
-                            setTimeout(() => {
-                                if (acao === 'full') {
-                                    client.write(`display current-configuration interface ${portaReal}\r\n`);
-                                } else if (acao === 'shutdown' || acao === 'unshutdown') {
-                                    const cmd = acao === 'shutdown' ? 'shutdown' : 'undo shutdown';
-                                    client.write(`interface ${portaReal}\r\n${cmd}\r\n`);
-                                    setTimeout(() => client.write('display this\r\n'), 800);
-                                } else if (acao === 'status') {
-                                    client.write(`display interface ${portaReal}\r\n`);
-                                } else {
-                                    client.write(`display interface ${portaReal} | include Description\r\n`);
-                                    client.write(`display transceiver diagnosis interface ${portaReal}\r\n`);
-                                }
-                            }, 1000);
+                            client.write(`display interface ${portaReal} | include Description\r\n`);
+                            client.write(`display transceiver diagnosis interface ${portaReal} | begin Rx\r\n`);
                         }
-                        
+                        const tempoEspera = acao === 'listar' ? 6000 : 3500;
                         setTimeout(() => {
-                            client.write('return\r\n');
                             client.write('quit\r\n');
-                            setTimeout(encerrar, 2500);
-                        }, 5500);
+                            setTimeout(encerrar, 1000);
+                        }, tempoEspera);
                     }, 1000);
-                }, 1500);
+                }, 1000);
             }
         });
 
-        client.on('error', () => { if (buffer.length > 500) encerrar(); });
+        client.on('error', () => encerrar());
+        setTimeout(() => { if (!finalizado) encerrar(); }, 30000);
     });
-}
-
-function formatarConfirmacao(nomeSw, porta, log, acao) {
-    const status = (acao === 'unshutdown') ? '✅ *REATIVADA (UP)*' : '🚫 *DESLIGADA (DOWN)*';
-    const regexThis = /#([\s\S]*?)#/g;
-    const matches = log.match(regexThis);
-    let configAtual = matches ? matches[matches.length - 1].trim() : "Configuração não capturada.";
-
-    return `⚡ *MANOBRA DE INTERFACE*\n\n*SW:* ${nomeSw}\n*Porta:* ${porta}\n*Status:* ${status}\n\n*Recibo do Terminal (dis this):*\n\`\`\`\n#\n${configAtual}\n#\n\`\`\`\n────────────────\n_Ação confirmada via hardware._`;
-}
-
-function formatarStatus(nomeSw, porta, log) {
-    const linhas = log.split(/\r?\n/);
-    let estado = "Não localizado";
-    let protocolo = "Não localizado";
-    let descricao = "---";
-    let inputUtil = "0%";
-    let outputUtil = "0%";
-
-    for (const linha of linhas) {
-        const l = linha.trim();
-        if (l.includes("current state :") && !l.includes("Line protocol")) {
-            estado = l.replace(/^.*current state\s*:/i, '').trim();
-        } else if (l.includes("Line protocol current state :")) {
-            protocolo = l.replace(/^.*line protocol current state\s*:/i, '').trim();
-        } else if (l.includes("Description:")) {
-            descricao = l.split(':')[1]?.trim() || "---";
-        } else if (l.startsWith("Input bandwidth utilization")) {
-            inputUtil = l.split(':')[1]?.trim() || "0%";
-        } else if (l.startsWith("Output bandwidth utilization")) {
-            outputUtil = l.split(':')[1]?.trim() || "0%";
-        }
-    }
-
-    if (protocolo === "Não localizado" && estado.toLowerCase().includes("down")) {
-        protocolo = "DOWN";
-    }
-
-    let statusMsg = "✅ *LINK ESTÁVEL E SAUDÁVEL*";
-    if (estado.toLowerCase() !== 'up' || protocolo.toLowerCase() !== 'up') {
-        statusMsg = "🚨 *ATENÇÃO: LINK INOPERANTE (DOWN)*";
-    }
-
-    return `📌 *STATUS DA INTERFACE*\n\n*SW:* ${nomeSw}\n*Porta:* ${porta}\n\n*Estado:* ${estado}\n*Protocolo:* ${protocolo}\n*Descrição:* ${descricao}\n────────────────\n*Utilização de Banda:*\nInput bandwidth utilization  : ${inputUtil}\nOutput bandwidth utilization : ${outputUtil}\n────────────────\n${statusMsg}`;
 }
 
 function formatarListaGeral(nomeSw, log) {
     const linhas = log.split(/\r?\n/);
-    let trunks = [], vlans = [], xg = [], ge100 = [], outros = [];
+    let ethTrunks = [];
+    let fisicas = [];
 
-    linhas.forEach(linha => {
-        const l = linha.trim();
-        const match = l.match(/^([a-zA-Z0-9\/\.\-]+)\s+(up|down|\*down)\s+(up|down|up\(s\))\s*(.*)/i);
+    linhas.forEach(l => {
+        const match = l.match(/^([a-zA-Z0-9\/\.\-]+)\s+(up|down|\*down)\s+(up|down)\s+(.*)$/i);
+        
         if (match) {
-            const [_, interfaceNome, phy, proto, desc] = match;
-            const nameL = interfaceNome.toLowerCase();
-            if (nameL.startsWith('loop') || nameL.startsWith('meth') || nameL.startsWith('null') || nameL.startsWith('tun')) return; 
+            const nomeInt = match[1];
+            const phy = match[2].toLowerCase();
+            const proto = match[3].toLowerCase();
+            const desc = match[4].trim() || '---';
             
-            let emoji = (phy.toLowerCase() === 'up') ? '✅' : '❌';
-            if (phy.toLowerCase().includes('*down')) emoji = '🚫';
+            let emoji = '🚫'; // Down/Down ou *Down/Down
+
+            if (phy === 'up' && proto === 'up') {
+                emoji = '✅';
+            } else if (phy === 'up' && proto === 'down') {
+                emoji = '🚨'; // Erro Camada 2: Físico OK, mas Protocolo Down
+            }
             
-            const txt = `${emoji} \`${interfaceNome.padEnd(20)}\` | \`${phy}/${proto}\` | ${desc.trim() || '---'}`;
-            
-            if (nameL.includes('eth-trunk')) trunks.push(txt);
-            else if (nameL.includes('vlanif')) vlans.push(txt);
-            else if (nameL.includes('100ge')) ge100.push(txt);
-            else if (nameL.includes('xge') || nameL.includes('xgigabit')) xg.push(txt);
-            else if (!nameL.includes('interface')) outros.push(txt);
+            const linha = `${emoji} \`${nomeInt.padEnd(18)}\` \` | \`${phy}/${proto} | ${desc}`;
+
+            if (nomeInt.toLowerCase().includes('trunk')) {
+                ethTrunks.push(linha);
+            } else if (!nomeInt.toLowerCase().includes('null') && !nomeInt.toLowerCase().includes('meth')) {
+                fisicas.push(linha);
+            }
         }
     });
 
     let msg = `📂 *RESUMO DE INTERFACES - ${nomeSw}*\n\n`;
-    if (trunks.length > 0) msg += `🔗 *ETH-TRUNKS*\n${trunks.join('\n')}\n\n`;
-    if (ge100.length > 0) msg += `🚀 *INTERFACES 100GE*\n${ge100.join('\n')}\n\n`;
-    if (xg.length > 0) msg += `⚡ *INTERFACES XG (10G)*\n${xg.join('\n')}\n\n`;
-    if (vlans.length > 0) msg += `🌐 *VLAN INTERFACES*\n${vlans.join('\n')}\n\n`;
-    if (outros.length > 0) msg += `🔌 *OUTRAS (GE/25GE)*\n${outros.join('\n')}`;
-    return msg;
+    if (ethTrunks.length > 0) msg += `🔗 *ETH-TRUNKS*\n${ethTrunks.join('\n')}\n\n`;
+    if (fisicas.length > 0) msg += `⚡ *INTERFACES FÍSICAS*\n${fisicas.join('\n')}`;
+
+    return msg || "❌ Nenhuma interface capturada no log.";
 }
 
 function gerarRelatorio(nomeSw, porta, log) {
     const linhas = log.split(/\r?\n/);
-    let lanesEncontradas = [];
-    let limiteCritico = -13.64; 
-    let descricao = "---";
+    let lanes = [], limite = -13.64, desc = "---";
+    const dLine = linhas.find(l => l.toLowerCase().includes('description:'));
+    if (dLine) desc = dLine.split(':')[1]?.trim() || "---";
 
-    const linhaDesc = linhas.find(l => l.toLowerCase().includes('description:'));
-    if (linhaDesc) descricao = linhaDesc.split(':')[1]?.trim() || "---";
-
-    for (let i = 0; i < linhas.length; i++) {
-        const l = linhas[i].trim();
-        if (l.startsWith("RxPower(dBm)")) {
-            const parts = l.split(/\s+/);
-            if (l.includes(' lane') || l.includes(' lane0')) {
-                const alarm = parseFloat(parts[3]);
-                if (!isNaN(alarm)) {
-                    limiteCritico = alarm;
-                }
-            } else {
-                const alarm = parseFloat(parts[2]);
-                if (!isNaN(alarm)) {
-                    limiteCritico = alarm;
-                }
+    let capturando = false;
+    for (let l of linhas) {
+        l = l.trim();
+        if (/rx\s*power/i.test(l)) {
+            capturando = true;
+            const nums = l.match(/-?\d+\.\d+/g);
+            if (nums) {
+                lanes.push(parseFloat(nums[0]));
+                const alarm = nums.find(n => parseFloat(n) <= -12.00);
+                if (alarm) limite = parseFloat(alarm);
             }
-            break;
+            continue;
+        }
+        if (capturando) {
+            if (/^(current|temp|voltage|----)/i.test(l)) break;
+            const m = l.match(/^(-?\d+\.\d+)/);
+            if (m) lanes.push(parseFloat(m[1]));
         }
     }
-
-    for (let i = 0; i < linhas.length; i++) {
-        const l = linhas[i].trim();
-        if (l.startsWith("RxPower(dBm)")) {
-            const parts = l.split(/\s+/);
-            if (l.includes('lane') || l.includes('Lane')) {
-                const valor = parseFloat(parts[1]);
-                if (!isNaN(valor)) {
-                    lanesEncontradas.push(valor);
-                }
-                for (let j = 1; j <= 3; j++) {
-                    if (i + j < linhas.length) {
-                        const nextLine = linhas[i + j].trim();
-                        if (nextLine.includes('lane')) {
-                            const nextParts = nextLine.split(/\s+/);
-                            const val = parseFloat(nextParts[0]);
-                            if (!isNaN(val)) {
-                                lanesEncontradas.push(val);
-                            }
-                        }
-                    }
-                }
-            } else {
-                const valor = parseFloat(parts[1]);
-                if (!isNaN(valor)) {
-                    lanesEncontradas.push(valor);
-                }
-            }
-            break;
-        }
-    }
-
-    const lanesFinais = [...new Set(lanesEncontradas)].slice(0, 4).sort((a, b) => a - b);
-
-    if (lanesFinais.length === 0) {
-        return `❌ *Sinal não localizado* em ${nomeSw}\n*Porta:* ${porta}\n*Desc:* ${descricao}`;
-    }
-
-    const piorRX = lanesFinais[0];
-    const statusSinal = piorRX <= limiteCritico ? "🚨 *SINAL CRÍTICO*" : "✅ *SINAL NORMAL*";
-
-    let msg = `📡 *DIAGNÓSTICO DE SINAL (RX)*\n\n`;
-    msg += `*SW:* ${nomeSw}\n`;
-    msg += `*Porta:* ${porta}\n`;
-    msg += `*Desc:* ${descricao}\n`;
-    msg += `────────────────\n`;
+    lanes = [...new Set(lanes)].slice(0, 4).sort((a, b) => a - b);
+    if (lanes.length === 0) return `❌ Sinal não localizado em ${nomeSw}\n*Porta:* ${porta}\n*Desc:* ${desc}`;
     
-    if (lanesFinais.length > 1) {
-        lanesFinais.forEach((v, i) => {
-            msg += `📶 Lane ${i}: ${v.toFixed(2)} dBm\n`;
-        });
-    } else {
-        msg += `📶 RX: ${piorRX.toFixed(2)} dBm\n`;
-    }
-
-    msg += `────────────────\n`;
-    msg += `📉 Pior RX / RX: ${piorRX.toFixed(2)} dBm\n`;
-    msg += `📉 Lim. Crítico (Low): ${limiteCritico.toFixed(2)} dBm\n`;
-    msg += `────────────────\n`;
-    msg += `${statusSinal}`;
-
+    const pior = lanes[0];
+    const status = pior <= limite ? "🚨 *SINAL CRÍTICO*" : "✅ *SINAL NORMAL*";
+    let msg = `📡 *SINAL (RX) - ${nomeSw}*\n*Porta:* ${porta}\n*Desc:* ${desc}\n────────────────\n`;
+    lanes.forEach((v, i) => msg += `📶 Lane ${i}: ${v.toFixed(2)} dBm\n`);
+    msg += `────────────────\n📉 Pior RX: ${pior.toFixed(2)} dBm\n📉 Limite: ${limite.toFixed(2)} dBm\n────────────────\n${status}`;
     return msg;
 }
 
-function formatarConfigFull(nomeSw, porta, log) {
-    const portaBusca = porta.replace(/\s+/g, '');
-    const regex = new RegExp(`interface\\s*${portaBusca}[\\s\\S]*?(?=#|return|$)`, 'i');
-    const match = log.match(regex);
-    let config = match ? match[0].trim() : null;
-
-    if (!config) {
-        const regexComEspaco = new RegExp(`interface\\s*${porta}[\\s\\S]*?(?=#|return|$)`, 'i');
-        const matchEspaco = log.match(regexComEspaco);
-        config = matchEspaco ? matchEspaco[0].trim() : 'Não localizado no buffer de log.';
+function formatarStatus(nomeSw, porta, log) {
+    const linhas = log.split(/\r?\n/);
+    let estado = "DOWN", protocolo = "DOWN", desc = "---";
+    for (const l of linhas) {
+        if (l.includes("current state :") && !l.includes("Line protocol")) estado = l.split(':')[1]?.trim();
+        if (l.includes("Line protocol current state :")) protocolo = l.split(':')[1]?.trim();
+        if (l.includes("Description:")) desc = l.split(':')[1]?.trim();
     }
-
-    return `📄 *CONFIGURAÇÃO ATUAL*\n\n*SW:* ${nomeSw}\n*Porta:* ${porta}\n────────────────\n\`\`\`\n${config}\n\`\`\`\n────────────────`;
+    const emoji = (estado === "UP") ? "✅" : "🚨";
+    return `${emoji} *STATUS INTERFACE*\n\n*SW:* ${nomeSw}\n*Porta:* ${porta}\n*Estado:* ${estado}\n*Protocolo:* ${protocolo}\n*Desc:* ${desc}`;
 }
